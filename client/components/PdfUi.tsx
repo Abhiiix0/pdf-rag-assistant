@@ -7,16 +7,13 @@ import Chat from "./Chat";
 
 export default function PDFUi() {
     const [mobileTab, setMobileTab] = useState<MobileTab>("chat");
-    const [file, setFile] = useState<File | null>(null);
-
     return (
         <div className="flex flex-col h-screen w-full bg-white text-zinc-900 overflow-hidden font-sans">
             <Navbar mobileTab={mobileTab} setMobileTab={setMobileTab} />
 
             <div className="flex-1 flex flex-col md:flex-row min-h-0 relative">
                 <Upload
-                    file={file}
-                    setFile={setFile}
+      
                     mobileTab={mobileTab}
                     setMobileTab={setMobileTab}
                 />

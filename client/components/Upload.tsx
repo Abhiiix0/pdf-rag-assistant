@@ -1,11 +1,8 @@
 "use client";
-
-import React from "react";
+import { useState } from "react";
 import type { MobileTab } from "./Navbar";
 
 type UploadProps = {
-    file: File | null;
-    setFile: (file: File | null) => void;
     mobileTab: MobileTab;
     setMobileTab: (tab: MobileTab) => void;
 };
@@ -16,11 +13,41 @@ const formatSize = (bytes: number) =>
         : `${Math.max(1, Math.round(bytes / 1024))} KB`;
 
 export default function Upload({
-    file,
-    setFile,
+
     mobileTab,
     setMobileTab,
 }: UploadProps) {
+
+const [file, setFile] = useState<File | null>(null);
+   console.log("pdf", file)
+async function uploadFun() {
+    if (!file) {
+        console.log("Please select a PDF");
+        return;
+    }
+
+    const formdata = new FormData();
+    formdata.append("pdf", file);
+
+    try {
+        console.log("API started");
+
+        const res = await fetch("http://localhost:8000/upload", {
+            method: "POST",
+            body: formdata,
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+            throw new Error(data.message || "Upload failed");
+        }
+
+        console.log("File uploaded:", data);
+    } catch (error) {
+        console.error("Upload error:", error);
+    }
+}
     return (
             <aside
                 className={`w-full md:w-[380px] lg:w-[420px] shrink-0 border-r border-zinc-200 bg-zinc-50 flex flex-col h-full overflow-y-auto ${mobileTab === "upload" ? "flex" : "hidden md:flex"
@@ -41,6 +68,7 @@ export default function Upload({
                     {!file && (
                     <div className="group relative border-2 border-dashed border-zinc-200 hover:border-blue-500 rounded-2xl p-6 flex flex-col items-center justify-center text-center bg-zinc-50 hover:bg-blue-50 transition-all cursor-pointer">
                         <input
+                            
                             type="file"
                             accept=".pdf"
                             onChange={(e) => {
@@ -76,7 +104,14 @@ export default function Upload({
                         </p>
                     </div>
                     )}
-
+{file && (
+    <button
+        onClick={uploadFun}
+        className="bg-blue-600 text-white px-4 py-2 rounded-lg"
+    >
+        Upload PDF
+    </button>
+)}
                     {/* Uploaded Document Card */}
                     {file && (
                     <div>
