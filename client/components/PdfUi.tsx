@@ -12,11 +12,7 @@ export default function PDFUi() {
             <Navbar mobileTab={mobileTab} setMobileTab={setMobileTab} />
 
             <div className="flex-1 flex flex-col md:flex-row min-h-0 relative">
-                <Upload
-      
-                    mobileTab={mobileTab}
-                    setMobileTab={setMobileTab}
-                />
+                <Upload mobileTab={mobileTab} setMobileTab={setMobileTab} />
                 <Chat mobileTab={mobileTab} />
             </div>
         </div>

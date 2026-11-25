@@ -37,10 +37,11 @@ export default function Navbar({ mobileTab, setMobileTab }: NavbarProps) {
             <div className="flex md:hidden bg-zinc-100 p-0.5 rounded-lg border border-zinc-200">
                 <button
                     onClick={() => setMobileTab("upload")}
-                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-1.5 ${mobileTab === "upload"
-                        ? "bg-blue-600 text-white shadow-xs"
-                        : "text-zinc-500 hover:text-black"
-                        }`}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-1.5 ${
+                        mobileTab === "upload"
+                            ? "bg-blue-600 text-white shadow-xs"
+                            : "text-zinc-500 hover:text-black"
+                    }`}
                 >
                     <svg
                         className="w-3.5 h-3.5"
@@ -59,10 +60,11 @@ export default function Navbar({ mobileTab, setMobileTab }: NavbarProps) {
                 </button>
                 <button
                     onClick={() => setMobileTab("chat")}
-                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-1.5 ${mobileTab === "chat"
-                        ? "bg-blue-600 text-white shadow-xs"
-                        : "text-zinc-500 hover:text-black"
-                        }`}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-1.5 ${
+                        mobileTab === "chat"
+                            ? "bg-blue-600 text-white shadow-xs"
+                            : "text-zinc-500 hover:text-black"
+                    }`}
                 >
                     <svg
                         className="w-3.5 h-3.5"

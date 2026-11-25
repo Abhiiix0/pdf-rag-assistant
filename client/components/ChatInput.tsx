@@ -9,15 +9,15 @@ export default function ChatInput() {
 
     const { docId } = usePdfStore();
 
-    const {
-        addMessage,
-        setLoading,
-        setError,
-        isLoading,
-    } = useChatStore();
+    const { addMessage, setLoading, setError, isLoading } = useChatStore();
 
     const hasText = value.trim().length > 0;
-
+    const getCurrentTime = () =>
+        new Date().toLocaleTimeString("en-IN", {
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: true,
+        });
     async function sendMessage(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
 
@@ -30,6 +30,7 @@ export default function ChatInput() {
             id: crypto.randomUUID(),
             role: "user",
             content: question,
+            time: getCurrentTime(),
         });
 
         setValue("");
@@ -37,19 +38,21 @@ export default function ChatInput() {
         setError(null);
 
         try {
-            const res = await fetch("http://localhost:8000/chat", {
+            const apiUrl =
+                process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+            const res = await fetch(`${apiUrl}/chat`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                 },
                 body: JSON.stringify({
-                    docid:docId,
+                    docid: docId,
                     question,
                 }),
             });
 
             const data = await res.json();
-console.log("response data: ",data)
+
             if (!res.ok) {
                 throw new Error(data.message || "Failed to get response");
             }
@@ -60,8 +63,8 @@ console.log("response data: ",data)
                 role: "assistant",
                 content: data.answer,
                 sources: data.sources,
+                time: getCurrentTime(),
             });
-
         } catch (error) {
             const message =
                 error instanceof Error ? error.message : "Something went wrong";

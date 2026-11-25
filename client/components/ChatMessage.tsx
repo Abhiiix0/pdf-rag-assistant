@@ -1,7 +1,6 @@
 "use client";
-
-import React from "react";
 import type { ChatMessageData } from "@/store/chat.store";
+import MarkdownText from "./MarkdownText";
 
 type ChatMessageProps = Omit<ChatMessageData, "id">;
 export type ChatRole = "user" | "assistant";
@@ -15,7 +14,7 @@ export default function ChatMessage({ role, content, time }: ChatMessageProps) {
                 </div>
                 <div className="flex-1 text-right">
                     <div className="inline-block text-left rounded-2xl rounded-tr-sm p-3.5 bg-blue-600 text-white text-sm leading-relaxed shadow-md shadow-blue-600/20">
-                        {content}
+                        <MarkdownText content={content} />
                     </div>
                     {time && (
                         <span className="block text-[10px] text-zinc-500 mt-1">
@@ -34,7 +33,7 @@ export default function ChatMessage({ role, content, time }: ChatMessageProps) {
             </div>
             <div className="flex-1">
                 <div className="rounded-2xl rounded-tl-sm p-4 bg-zinc-100 border border-zinc-200 shadow-xs text-sm text-zinc-900 leading-relaxed">
-                    {content}
+                    <MarkdownText content={content} />
                 </div>
             </div>
         </div>

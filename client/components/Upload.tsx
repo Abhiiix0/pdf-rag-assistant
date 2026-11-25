@@ -13,55 +13,48 @@ const formatSize = (bytes: number) =>
         ? `${(bytes / (1024 * 1024)).toFixed(1)} MB`
         : `${Math.max(1, Math.round(bytes / 1024))} KB`;
 
-export default function Upload({
-    mobileTab,
-    setMobileTab,
-}: UploadProps) {
-
+export default function Upload({ mobileTab, setMobileTab }: UploadProps) {
     const [file, setFile] = useState<File | null>(null);
-    const { setDocId,setPdfName,setPdf,resetPdf,pdfName,docId} = usePdfStore()
-   console.log("pdf", file)
-async function uploadFun() {
-    if (!file) {
-        console.log("Please select a PDF");
-        return;
-    }
+    const { setDocId, setPdfName, setPdf, resetPdf, pdfName, docId } =
+        usePdfStore();
 
-    const formdata = new FormData();
-    formdata.append("pdf", file);
-
-    try {
-        console.log("API started");
-
-        const res = await fetch("http://localhost:8000/upload", {
-            method: "POST",
-            body: formdata,
-        });
-
-        const data = await res.json();
-
-        if (!res.ok) {
-            throw new Error(data.message || "Upload failed");
+    async function uploadFun() {
+        if (!file) {
+            return;
         }
 
-        console.log("File uploaded:", data);
-        setDocId(data.jobId)
-        setPdfName(file.name);
-        setPdf(file);
-    } catch (error) {
-        console.error("Upload error:", error);
+        const formdata = new FormData();
+        formdata.append("pdf", file);
+
+        try {
+            const apiUrl =
+                process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+            const res = await fetch(`${apiUrl}/upload`, {
+                method: "POST",
+                body: formdata,
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                throw new Error(data.message || "Upload failed");
+            }
+
+            setDocId(data.jobId);
+            setPdfName(file.name);
+            setPdf(file);
+        } catch (error) {
+            console.error("Upload error:", error);
+        }
     }
-}
     return (
-            <aside
-                className={`w-full md:w-[380px] lg:w-[420px] shrink-0 border-r border-zinc-200 bg-zinc-50 flex flex-col h-full overflow-y-auto ${mobileTab === "upload" ? "flex" : "hidden md:flex"
-                    }`}
-            >
-                <div className="p-5 flex flex-col gap-5">
-                {/* Panel Title */}
-                {
-                    docId && pdfName &&
-                
+        <aside
+            className={`w-full md:w-[380px] lg:w-[420px] shrink-0 border-r border-zinc-200 bg-zinc-50 flex flex-col h-full overflow-y-auto ${
+                mobileTab === "upload" ? "flex" : "hidden md:flex"
+            }`}
+        >
+            <div className="p-5 flex flex-col gap-5">
+                {!docId && !pdfName && (
                     <div>
                         <h2 className="text-base font-semibold text-zinc-900">
                             PDF Upload
@@ -70,11 +63,10 @@ async function uploadFun() {
                             Upload your document to chat and query its content.
                         </p>
                     </div>
-}
-  {!file && (
+                )}
+                {!file && (
                     <div className="group relative border-2 border-dashed border-zinc-200 hover:border-blue-500 rounded-2xl p-6 flex flex-col items-center justify-center text-center bg-zinc-50 hover:bg-blue-50 transition-all cursor-pointer">
                         <input
-                            
                             type="file"
                             accept=".pdf"
                             onChange={(e) => {
@@ -109,17 +101,17 @@ async function uploadFun() {
                             PDF files up to 25MB
                         </p>
                     </div>
-                    )}
-{file && (
-    <button
-        onClick={uploadFun}
-        className="bg-blue-600 text-white px-4 py-2 rounded-lg"
-    >
-        Upload PDF
-    </button>
-)}
-                    {/* Uploaded Document Card */}
-                    {file && (
+                )}
+                {file && !docId && (
+                    <button
+                        onClick={uploadFun}
+                        className="w-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-4 py-2.5 rounded-xl transition-colors"
+                    >
+                        Upload PDF
+                    </button>
+                )}
+                {/* Uploaded Document Card */}
+                {file && (
                     <div>
                         <div className="flex items-center justify-between mb-2">
                             <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
@@ -155,8 +147,8 @@ async function uploadFun() {
                                 <button
                                     type="button"
                                     onClick={() => {
-                                        setFile(null)
-                                        resetPdf()
+                                        setFile(null);
+                                        resetPdf();
                                     }}
                                     className="text-zinc-500 hover:text-black p-1 rounded-md hover:bg-zinc-100 transition-colors"
                                     title="Remove file"
@@ -183,31 +175,31 @@ async function uploadFun() {
                             </div>
                         </div>
                     </div>
-                    )}
+                )}
 
-                    <div className="md:hidden mt-auto pt-2">
-                        <button
-                            type="button"
-                            onClick={() => setMobileTab("chat")}
-                            className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-medium flex items-center justify-center gap-1.5 shadow-sm shadow-blue-600/30 transition-colors"
+                <div className="md:hidden mt-auto pt-2">
+                    <button
+                        type="button"
+                        onClick={() => setMobileTab("chat")}
+                        className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-medium flex items-center justify-center gap-1.5 shadow-sm shadow-blue-600/30 transition-colors"
+                    >
+                        <span>Continue to Chat Screen</span>
+                        <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
                         >
-                            <span>Continue to Chat Screen</span>
-                            <svg
-                                className="w-4 h-4"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                            >
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M13 7l5 5m0 0l-5 5m5-5H6"
-                                />
-                            </svg>
-                        </button>
-                    </div>
+                            <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M13 7l5 5m0 0l-5 5m5-5H6"
+                            />
+                        </svg>
+                    </button>
                 </div>
-            </aside>
+            </div>
+        </aside>
     );
 }
