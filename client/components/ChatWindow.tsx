@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import useChatStore from "@/store/chat.store";
 import usePdfStore from "@/store/pdf.store";
 import ChatMessage from "./ChatMessage";
@@ -7,6 +8,11 @@ import ChatMessage from "./ChatMessage";
 export default function ChatWindow() {
     const { messages, isLoading, error } = useChatStore();
     const { docId } = usePdfStore();
+    const bottomRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [messages, isLoading, error]);
 
     if (messages.length === 0 && !isLoading && !error) {
         return (
@@ -54,6 +60,8 @@ export default function ChatWindow() {
             )}
 
             {error && <p className="text-sm text-red-500">{error}</p>}
+
+            <div ref={bottomRef} />
         </div>
     );
 }

@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { createJSONStorage, persist } from "zustand/middleware";
 
 export type ChatRole = "user" | "assistant";
 
@@ -21,26 +22,36 @@ interface ChatStore {
     resetChat: () => void;
 }
 
-const useChatStore = create<ChatStore>((set) => ({
-    messages: [],
-    isLoading: false,
-    error: null,
-
-    addMessage: (message) =>
-        set((state) => ({
-            messages: [...state.messages, message],
-        })),
-
-    setLoading: (loading) => set({ isLoading: loading }),
-
-    setError: (error) => set({ error }),
-
-    resetChat: () =>
-        set({
+const useChatStore = create<ChatStore>()(
+    persist(
+        (set) => ({
             messages: [],
             isLoading: false,
             error: null,
+
+            addMessage: (message) =>
+                set((state) => ({
+                    messages: [...state.messages, message],
+                })),
+
+            setLoading: (loading) => set({ isLoading: loading }),
+
+            setError: (error) => set({ error }),
+
+            resetChat: () =>
+                set({
+                    messages: [],
+                    isLoading: false,
+                    error: null,
+                }),
         }),
-}));
+        {
+            name: "chat-store",
+            storage: createJSONStorage(() => sessionStorage),
+            partialize: (state) => ({ messages: state.messages }),
+            skipHydration: true,
+        }
+    )
+);
 
 export default useChatStore;

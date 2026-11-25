@@ -2,6 +2,7 @@
 import { useState } from "react";
 import type { MobileTab } from "./Navbar";
 import usePdfStore from "@/store/pdf.store";
+import useChatStore from "@/store/chat.store";
 
 type UploadProps = {
     mobileTab: MobileTab;
@@ -15,8 +16,9 @@ const formatSize = (bytes: number) =>
 
 export default function Upload({ mobileTab, setMobileTab }: UploadProps) {
     const [file, setFile] = useState<File | null>(null);
-    const { setDocId, setPdfName, setPdf, resetPdf, pdfName, docId } =
+    const { setDocId, setPdfName, setPdf, resetPdf, pdfName, pdfSize, docId } =
         usePdfStore();
+    const { resetChat } = useChatStore();
 
     async function uploadFun() {
         if (!file) {
@@ -64,7 +66,7 @@ export default function Upload({ mobileTab, setMobileTab }: UploadProps) {
                         </p>
                     </div>
                 )}
-                {!file && (
+                {!file && !pdfName && (
                     <div className="group relative border-2 border-dashed border-zinc-200 hover:border-blue-500 rounded-2xl p-6 flex flex-col items-center justify-center text-center bg-zinc-50 hover:bg-blue-50 transition-all cursor-pointer">
                         <input
                             type="file"
@@ -98,7 +100,7 @@ export default function Upload({ mobileTab, setMobileTab }: UploadProps) {
                             or drag & drop
                         </p>
                         <p className="text-xs text-zinc-500 mt-1">
-                            PDF files up to 25MB
+                            PDF files up to 10MB
                         </p>
                     </div>
                 )}
@@ -111,7 +113,7 @@ export default function Upload({ mobileTab, setMobileTab }: UploadProps) {
                     </button>
                 )}
                 {/* Uploaded Document Card */}
-                {file && (
+                {(file || pdfName) && (
                     <div>
                         <div className="flex items-center justify-between mb-2">
                             <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
@@ -138,17 +140,20 @@ export default function Upload({ mobileTab, setMobileTab }: UploadProps) {
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <h3 className="text-xs font-semibold text-zinc-900 truncate">
-                                        {file.name}
+                                        {file?.name ?? pdfName}
                                     </h3>
-                                    <p className="text-[11px] text-zinc-500 mt-0.5">
-                                        {formatSize(file.size)}
-                                    </p>
+                                    {(file || pdfSize > 0) && (
+                                        <p className="text-[11px] text-zinc-500 mt-0.5">
+                                            {formatSize(file?.size ?? pdfSize)}
+                                        </p>
+                                    )}
                                 </div>
                                 <button
                                     type="button"
                                     onClick={() => {
                                         setFile(null);
                                         resetPdf();
+                                        resetChat();
                                     }}
                                     className="text-zinc-500 hover:text-black p-1 rounded-md hover:bg-zinc-100 transition-colors"
                                     title="Remove file"
