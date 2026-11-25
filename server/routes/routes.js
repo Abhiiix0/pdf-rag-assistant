@@ -1,6 +1,7 @@
 import { Router } from "express"
 import FileUpload from "../controller/FileUpload.js"
 import multer from "multer"
+import Chat from "../controller/Chat.js"
 const storage = multer.diskStorage({
     destination:function (req,file,cd) {
         cd(null,"uploads/")
@@ -26,5 +27,7 @@ const upload = multer({
 const route = Router()
 
 route.post("/upload", upload.single('pdf'), FileUpload)
+route.post("/chat", Chat)
+
 
 export default route
