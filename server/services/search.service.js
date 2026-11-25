@@ -9,7 +9,7 @@ export async function searchChunks(question, docid, topK = 5) {
         data: question,
         topK,
         includeMetadata: true,
-        ...(docid && { filter: `docid = '${docid}'` })
+        ...(docid && { filter: `docId = '${docid}'` })
     })
     return results.map((r) => ({
         score: r.score,                       // 0 to 1, higher = closer match

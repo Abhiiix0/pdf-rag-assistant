@@ -44,3 +44,9 @@ yarn-debug.log*
 .idea/
 .vscode/
 *.pem
+
+# Bruno API collection
+PDF-RAG/
+*.bru
+bruno.json
+opencollection.yml
