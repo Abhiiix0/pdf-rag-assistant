@@ -1,19 +1,10 @@
 "use client";
 
 import React from "react";
-
-export type ChatRole = "user" | "assistant";
-
-export type ChatMessageData = {
-    id: string;
-    role: ChatRole;
-    /** Plain text or JSX (e.g. lists / bold text for rich answers) */
-    content: React.ReactNode;
-    /** Display time, e.g. "10:32 AM" (shown under user messages) */
-    time?: string;
-};
+import type { ChatMessageData } from "@/store/chat.store";
 
 type ChatMessageProps = Omit<ChatMessageData, "id">;
+export type ChatRole = "user" | "assistant";
 
 export default function ChatMessage({ role, content, time }: ChatMessageProps) {
     if (role === "user") {

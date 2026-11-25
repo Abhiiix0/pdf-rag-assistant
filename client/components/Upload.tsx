@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import type { MobileTab } from "./Navbar";
+import usePdfStore from "@/store/pdf.store";
 
 type UploadProps = {
     mobileTab: MobileTab;
@@ -13,12 +14,12 @@ const formatSize = (bytes: number) =>
         : `${Math.max(1, Math.round(bytes / 1024))} KB`;
 
 export default function Upload({
-
     mobileTab,
     setMobileTab,
 }: UploadProps) {
 
-const [file, setFile] = useState<File | null>(null);
+    const [file, setFile] = useState<File | null>(null);
+    const { setDocId,setPdfName,setPdf,resetPdf,pdfName,docId} = usePdfStore()
    console.log("pdf", file)
 async function uploadFun() {
     if (!file) {
@@ -44,6 +45,9 @@ async function uploadFun() {
         }
 
         console.log("File uploaded:", data);
+        setDocId(data.jobId)
+        setPdfName(file.name);
+        setPdf(file);
     } catch (error) {
         console.error("Upload error:", error);
     }
@@ -54,7 +58,10 @@ async function uploadFun() {
                     }`}
             >
                 <div className="p-5 flex flex-col gap-5">
-                    {/* Panel Title */}
+                {/* Panel Title */}
+                {
+                    docId && pdfName &&
+                
                     <div>
                         <h2 className="text-base font-semibold text-zinc-900">
                             PDF Upload
@@ -63,9 +70,8 @@ async function uploadFun() {
                             Upload your document to chat and query its content.
                         </p>
                     </div>
-
-                    {/* Dropzone Area (hidden once a file is uploaded) */}
-                    {!file && (
+}
+  {!file && (
                     <div className="group relative border-2 border-dashed border-zinc-200 hover:border-blue-500 rounded-2xl p-6 flex flex-col items-center justify-center text-center bg-zinc-50 hover:bg-blue-50 transition-all cursor-pointer">
                         <input
                             
@@ -148,7 +154,10 @@ async function uploadFun() {
                                 </div>
                                 <button
                                     type="button"
-                                    onClick={() => setFile(null)}
+                                    onClick={() => {
+                                        setFile(null)
+                                        resetPdf()
+                                    }}
                                     className="text-zinc-500 hover:text-black p-1 rounded-md hover:bg-zinc-100 transition-colors"
                                     title="Remove file"
                                 >
