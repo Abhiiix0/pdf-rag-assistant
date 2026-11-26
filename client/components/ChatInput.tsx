@@ -5,11 +5,12 @@ import usePdfStore from "@/store/pdf.store";
 import useChatStore from "@/store/chat.store";
 
 export default function ChatInput() {
+
     const [value, setValue] = useState("");
 
     const { docId } = usePdfStore();
 
-    const { addMessage, setLoading, setError, isLoading } = useChatStore();
+    const { addMessage, setLoading, setError, isLoading,messages } = useChatStore();
 
     const hasText = value.trim().length > 0;
     const getCurrentTime = () =>
@@ -20,7 +21,8 @@ export default function ChatInput() {
         });
     async function sendMessage(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
-
+        const recentHistory = messages.slice(-3);
+        console.log("recentHistory",recentHistory)
         const question = value.trim();
 
         if (!question || !docId || isLoading) return;
@@ -48,6 +50,8 @@ export default function ChatInput() {
                 body: JSON.stringify({
                     docid: docId,
                     question,
+                    chatHistory: recentHistory,
+
                 }),
             });
 
