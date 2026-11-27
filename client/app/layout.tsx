@@ -2,10 +2,10 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-    title: "PDF RAG Assistant",
-    description: "Chat with your PDF documents",
+    title: "PDF AI Assistant | Chat with Your Documents",
+    description:
+        "Upload PDF documents and get instant, AI-powered answers. Search, understand, and explore your documents through an intelligent chat assistant.",
 };
-
 export default function RootLayout({
     children,
 }: {
