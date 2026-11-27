@@ -1,4 +1,4 @@
-import { Index } from "@upstash/vector";
+import { FusionAlgorithm, Index, WeightingStrategy } from "@upstash/vector";
 const index = new Index({
     url: process.env.UPSTASH_VECTOR_REST_URL,
     token: process.env.UPSTASH_VECTOR_REST_TOKEN,
@@ -9,10 +9,12 @@ export async function searchChunks(question, docid, topK = 5) {
         data: question,
         topK,
         includeMetadata: true,
-        ...(docid && { filter: `docId = '${docid}'` })
+        fusionAlgorithm: FusionAlgorithm.RRF,       // already the default
+        weightingStrategy: WeightingStrategy.IDF,
+        filter: `docId = '${docid}'`,
     })
     return results.map((r) => ({
-        score: r.score,                       // 0 to 1, higher = closer match
+        score: r.score,                       // RRF fusion score, higher = better rank
         page: r.metadata.page,
         text: r.metadata.text,
         originalName: r.metadata.originalName,

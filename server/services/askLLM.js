@@ -43,6 +43,9 @@ export default async function askLLM(question, context) {
                     ],
                 }),
             });
+        if (!res.ok) {
+            throw new Error(`Groq API error: ${res.status} ${await res.text()}`);
+        }
         const data = await res.json();
         return data.choices[0].message.content;
     

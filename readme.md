@@ -1,57 +1,79 @@
 # PDF RAG Assistant
 
-Upload a PDF and chat with it. Answers are generated only from the document's content, with the source page numbers returned alongside.
+Upload a PDF and chat with it. It uses **hybrid search** (semantic + keyword) and understands follow-up questions. The assistant is instructed to answer only from the document's content, and returns the pages used as context.
 
 ## Architecture
 
+### Ingestion
+
 ```
-                         ┌───────────────────────────┐
-                         │   Next.js client (3000)   │
-                         │  Upload panel + Chat UI   │
-                         │   zustand (sessionStorage)│
-                         └─────────────┬─────────────┘
-                                       │ REST
-                         ┌─────────────▼─────────────┐
-                         │    Express server (8000)  │
-                         │   POST /upload  POST /chat│
-                         └───────┬───────────┬───────┘
-                                 │           │
-              ── Ingestion ──    │           │    ── Question answering ──
-                                 │           │
-        ┌────────────────────────▼──┐     ┌──▼─────────────────────────┐
-        │ multer saves PDF to disk  │     │ 1. Vector search (top 5)   │
-        │ BullMQ job → Upstash Redis│     │    filtered by docId       │
-        └────────────┬──────────────┘     │ 2. Build context from chunks│
-                     │                    │ 3. Groq LLM answers from   │
-        ┌────────────▼──────────────┐     │    context only            │
-        │ Worker (separate process) │     └──────────────▲─────────────┘
-        │ PDFLoader → text          │                    │
-        │ Split: 800 chars / 100 ov.│                    │ query
-        │ Upsert chunks + metadata  ├────────────────────┘
-        └────────────┬──────────────┘          ┌─────────┴──────────┐
-                     └────────────────────────►│   Upstash Vector   │
-                                               │ (built-in embeds)  │
-                                               └────────────────────┘
+ Client ── POST /upload ──► Express ──► multer saves PDF to disk
+                               │
+                               └──► BullMQ queue (Upstash Redis) ──► returns jobId
+                                              │
+                                              ▼
+                               Worker (separate process)
+                               PDFLoader → text per page
+                               Split: 800 chars, 100 overlap
+                                              │
+                                              ▼
+                               Upstash Vector (Hybrid index)
+                               dense + BM25 sparse embeddings
 ```
 
-### Flow
+### Question answering
 
-1. **Upload:** the client sends the PDF to `POST /upload`. The server stores it and adds a `process-pdf` job to a BullMQ queue, then returns a `jobId` straight away. This `jobId` is the document ID.
-2. **Ingest:** a separate worker picks up the job, extracts the text per page with LangChain `PDFLoader`, and splits it into chunks (800 characters, 100 overlap).
-3. **Store:** each chunk is upserted into Upstash Vector with its text, page number and `docId`. Upstash creates the embeddings itself, so no separate embedding API key is needed.
-4. **Ask:** `POST /chat` takes `{ question, docid }`. It finds the 5 closest chunks for that document, builds a context from them, and asks the LLM to answer using only that context.
-5. **Answer:** the response is `{ answer, sources }`, where `sources` are the page numbers used.
+```
+ Client ── POST /chat { question, docid, chatHistory }
+                               │
+                               ▼
+                 1. Query rewrite (Groq)
+                    follow-up → standalone question
+                               │
+                               ▼
+                 2. Hybrid search, filtered by docId
+                    ┌──────────────┴──────────────┐
+              Semantic (dense)            Keyword (BM25 + IDF)
+                    └──────────────┬──────────────┘
+                              RRF fusion → top 5 chunks
+                               │
+                               ▼
+                 3. Answer (Groq), from that context only
+                               │
+                               ▼
+                    { answer, sources: [pages] }
+```
+
+## How it works
+
+1. **Upload:** `POST /upload` saves the file, adds a `process-pdf` job to the queue and returns a `jobId` straight away. This `jobId` is the document ID.
+2. **Ingest:** the worker extracts the text with LangChain `PDFLoader` and splits it into chunks.
+3. **Store:** each chunk is saved with its text, page number and `docId`. Upstash creates both the dense and sparse vectors from the raw text.
+4. **Rewrite:** the client sends the last 3 messages. A follow-up such as "how many can be carried forward?" is rewritten into a complete question. If rewriting fails, the original question is used.
+5. **Search:** semantic and keyword search run together, filtered to the current document.
+6. **Answer:** the rewritten question and the top 5 chunks go to the LLM.
+
+## Hybrid search
+
+| Part                   | What it is good at                                        |
+| ---------------------- | --------------------------------------------------------- |
+| Semantic (dense)       | Meaning: different wording for the same idea              |
+| Keyword (BM25, sparse) | Exact terms: names, codes, numbers                        |
+| IDF weighting          | Gives rare words more weight in keyword search            |
+| RRF fusion             | Merges both lists by rank, since their scores don't match |
+
+A chunk that ranks well in both lists moves up. An RRF score shows rank, not how relevant a chunk is, so it shouldn't be used as a similarity cutoff.
 
 ## Tech stack
 
-| Layer        | Tools                                                       |
-| ------------ | ----------------------------------------------------------- |
-| Client       | Next.js 16, React 19, TypeScript, Tailwind CSS, zustand     |
-| Server       | Node.js (ESM), Express 5, multer                            |
-| Queue        | BullMQ + ioredis on Upstash Redis                           |
-| PDF / chunks | LangChain `PDFLoader`, `RecursiveCharacterTextSplitter`     |
-| Vector DB    | Upstash Vector (built-in embedding model)                   |
-| LLM          | Groq (`openai/gpt-oss-120b`), Gemini code kept as an option |
+| Layer        | Tools                                                                                |
+| ------------ | ------------------------------------------------------------------------------------ |
+| Client       | Next.js 16, React 19, TypeScript, Tailwind CSS, zustand, react-markdown              |
+| Server       | Node.js (ESM), Express 5, multer                                                     |
+| Queue        | BullMQ + ioredis on Upstash Redis                                                    |
+| PDF / chunks | LangChain `PDFLoader`, `RecursiveCharacterTextSplitter`                              |
+| Vector DB    | Upstash Vector hybrid index (`text-embedding-3-small` + BM25)                        |
+| LLM (Groq)   | `openai/gpt-oss-120b` for answers, `openai/gpt-oss-20b` for query rewriting          |
 
 ## Project structure
 
@@ -64,7 +86,7 @@ server/
   index.js, app.js
   routes/         /upload and /chat routes (multer config)
   controller/     FileUpload.js, Chat.js
-  services/       pdf.service.js, search.service.js, askLLM.js
+  services/       pdf.service.js, queryRewrite.js, search.service.js, askLLM.js
   queues/         pdfQueue.js
   workers/        pdfWorker.js
   config/         redis.js
@@ -72,9 +94,23 @@ server/
 
 ## Getting started
 
-You need Node.js 20+ and free accounts on [Upstash](https://upstash.com) (Redis and Vector, with a built-in embedding model) and [Groq](https://console.groq.com).
+You need Node.js 20+, and accounts on [Upstash](https://upstash.com) (Redis and Vector) and [Groq](https://console.groq.com).
 
-### 1. Server
+### 1. Create the vector index
+
+In the Upstash console, create a Vector index with these settings:
+
+| Setting      | Value                    |
+| ------------ | ------------------------ |
+| Type         | Hybrid                   |
+| Dense model  | `text-embedding-3-small` |
+| Dimensions   | 1536                     |
+| Metric       | Cosine                   |
+| Sparse model | BM25                     |
+
+Choose Upstash embedding models for both, not "Custom", because the app sends raw text. A dense-only index won't work with this setup.
+
+### 2. Server
 
 ```bash
 cd server
@@ -91,7 +127,7 @@ UPSTASH_VECTOR_REST_TOKEN=
 GROQ_API_KEY=
 ```
 
-Use `rediss://` (with two s) because Upstash requires TLS.
+Use `rediss://` (with two s) because Upstash Redis requires TLS.
 
 Run the API and the worker in two terminals:
 
@@ -100,9 +136,9 @@ npm run dev      # API on http://localhost:8000
 npm run worker   # processes uploaded PDFs
 ```
 
-The worker is a separate process and does not hot-reload, so restart it after changing its code.
+Restart both after changing `.env`. The worker also doesn't hot-reload, so restart it after changing its code. If you switch to a new index, upload your PDFs again.
 
-### 2. Client
+### 3. Client
 
 ```bash
 cd client
@@ -121,14 +157,40 @@ npm run dev      # http://localhost:3000
 
 ## API
 
-| Method | Endpoint  | Body                                     | Response                                 |
-| ------ | --------- | ---------------------------------------- | ---------------------------------------- |
-| POST   | `/upload` | `multipart/form-data`, field `pdf` (PDF, max 10MB) | `202 { success, message, jobId }` |
-| POST   | `/chat`   | `{ "question": "...", "docid": "<jobId>" }` | `{ answer, sources: [pages] }`        |
+### `POST /upload`
 
-Indexing runs in the background, so wait a few seconds after uploading before asking the first question.
+`multipart/form-data` with a `pdf` field (PDF only, max 10MB).
 
-## Notes
+```json
+202 { "success": true, "message": "...", "jobId": "21" }
+```
 
-- Chat and the uploaded document persist across a page refresh and are cleared when the tab is closed.
-- Answers are limited to the document. If the answer is not in the retrieved context, the assistant says it could not find it.
+### `POST /chat`
+
+```json
+{
+    "question": "How many can be carried forward?",
+    "docid": "21",
+    "chatHistory": [
+        { "role": "user", "content": "How many paid leaves does an employee get?" }
+    ]
+}
+```
+
+`chatHistory` is optional.
+
+```json
+200 { "answer": "...", "sources": [1, 2] }
+```
+
+| Status | When                                                   |
+| ------ | ------------------------------------------------------ |
+| 400    | `question` is blank, or `docid` is missing or not numeric |
+| 500    | Search or answer generation failed                     |
+
+Indexing runs in the background. If you ask before it finishes, the answer may be incomplete or say that no content was found.
+
+## Limitations
+
+- There is no user authentication or ownership check. Anyone who can reach the API can query a document by its numeric ID.
+- Chat and the uploaded document are kept in the browser's `sessionStorage`. They survive a refresh and are cleared when the tab is closed. Closing the tab doesn't delete the uploaded file or its vectors, and neither does the delete button.
