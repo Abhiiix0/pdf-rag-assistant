@@ -1,6 +1,6 @@
 # PDF RAG Assistant
 
-Upload a PDF and chat with it. It uses **hybrid search** (semantic + keyword) and understands follow-up questions. The assistant is instructed to answer only from the document's content, and returns the pages used as context.
+Upload a PDF and chat with it. It uses **hybrid search** (semantic + keyword) with **reranking**, and understands follow-up questions. The assistant is instructed to answer only from the document's content, and returns the pages used as context.
 
 ## Architecture
 
@@ -35,10 +35,13 @@ Upload a PDF and chat with it. It uses **hybrid search** (semantic + keyword) an
                     ┌──────────────┴──────────────┐
               Semantic (dense)            Keyword (BM25 + IDF)
                     └──────────────┬──────────────┘
-                              RRF fusion → top 5 chunks
+                        RRF fusion → up to 20 candidates
                                │
                                ▼
-                 3. Answer (Groq), from that context only
+                 3. Rerank (Jina) → top 5 chunks
+                               │
+                               ▼
+                 4. Answer (Groq), from that context only
                                │
                                ▼
                     { answer, sources: [pages] }
@@ -50,8 +53,9 @@ Upload a PDF and chat with it. It uses **hybrid search** (semantic + keyword) an
 2. **Ingest:** the worker extracts the text with LangChain `PDFLoader` and splits it into chunks.
 3. **Store:** each chunk is saved with its text, page number and `docId`. Upstash creates both the dense and sparse vectors from the raw text.
 4. **Rewrite:** the client sends the last 3 messages. A follow-up such as "how many can be carried forward?" is rewritten into a complete question. If rewriting fails, the original question is used.
-5. **Search:** semantic and keyword search run together, filtered to the current document.
-6. **Answer:** the rewritten question and the top 5 chunks go to the LLM.
+5. **Search:** semantic and keyword search run together, filtered to the current document, and return up to 20 candidates.
+6. **Rerank:** a reranker compares the question with each candidate and keeps the best 5.
+7. **Answer:** the rewritten question and those 5 chunks go to the LLM.
 
 ## Hybrid search
 
@@ -64,6 +68,19 @@ Upload a PDF and chat with it. It uses **hybrid search** (semantic + keyword) an
 
 A chunk that ranks well in both lists moves up. An RRF score shows rank, not how relevant a chunk is, so it shouldn't be used as a similarity cutoff.
 
+## Reranking
+
+```
+hybrid search → up to 20 candidates → Jina reranker → best 5 → LLM
+```
+
+Hybrid search finds likely chunks quickly, and RRF merges them by position only. The reranker (`jina-reranker-v3.5`) scores each candidate against the question, so the most relevant chunks move to the top.
+
+- If the request fails or takes more than 5 seconds, the app uses the first 5 results in hybrid order, so chat keeps working. The server logs `Reranking failed`.
+- A reranker can only reorder the candidates. It can't recover a chunk that search didn't return.
+- Don't assume its scores run from 0 to 1; they can be negative.
+- The question and candidate chunk text are sent to Jina. The question, chat history and selected chunks are also sent to Groq.
+
 ## Tech stack
 
 | Layer        | Tools                                                                                |
@@ -73,6 +90,7 @@ A chunk that ranks well in both lists moves up. An RRF score shows rank, not how
 | Queue        | BullMQ + ioredis on Upstash Redis                                                    |
 | PDF / chunks | LangChain `PDFLoader`, `RecursiveCharacterTextSplitter`                              |
 | Vector DB    | Upstash Vector hybrid index (`text-embedding-3-small` + BM25)                        |
+| Reranker     | Jina `jina-reranker-v3.5`                                                            |
 | LLM (Groq)   | `openai/gpt-oss-120b` for answers, `openai/gpt-oss-20b` for query rewriting          |
 
 ## Project structure
@@ -86,7 +104,8 @@ server/
   index.js, app.js
   routes/         /upload and /chat routes (multer config)
   controller/     FileUpload.js, Chat.js
-  services/       pdf.service.js, queryRewrite.js, search.service.js, askLLM.js
+  services/       pdf.service.js, queryRewrite.js, search.service.js,
+                  rerank.service.js, askLLM.js
   queues/         pdfQueue.js
   workers/        pdfWorker.js
   config/         redis.js
@@ -94,7 +113,7 @@ server/
 
 ## Getting started
 
-You need Node.js 20+, and accounts on [Upstash](https://upstash.com) (Redis and Vector) and [Groq](https://console.groq.com).
+You need Node.js 20+, and accounts on [Upstash](https://upstash.com) (Redis and Vector), [Groq](https://console.groq.com) and [Jina](https://jina.ai/reranker/). Check each provider's current limits and terms.
 
 ### 1. Create the vector index
 
@@ -125,6 +144,7 @@ REDIS_URL=rediss://default:<password>@<host>:6379
 UPSTASH_VECTOR_REST_URL=
 UPSTASH_VECTOR_REST_TOKEN=
 GROQ_API_KEY=
+JINA_API_KEY=
 ```
 
 Use `rediss://` (with two s) because Upstash Redis requires TLS.

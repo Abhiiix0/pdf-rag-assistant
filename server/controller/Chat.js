@@ -1,7 +1,7 @@
 import askLLM from "../services/askLLM.js";
 import queryRewrite from "../services/queryRewrite.js";
 import { searchChunks } from "../services/search.service.js";
-
+import rerank from "../services/rerank.service.js";
 export default async function Chat(req, res) {
     const { question, docid, chatHistory } = req.body ?? {};
 
@@ -19,8 +19,10 @@ export default async function Chat(req, res) {
         const searchQuery = rewrittenQuery || question;
         console.log("searchQuery:", searchQuery);
 
-        const chunks = await searchChunks(searchQuery, docid, 5);
-
+        const candidates = await searchChunks(searchQuery, docid, 20);
+        const chunks = candidates.length
+    ? await rerank(searchQuery, candidates, 5)
+    : [];
         if (!chunks.length) {
             return res.json({
                 answer: "I couldn't find any content for this document. It may still be processing, so try again in a few seconds.",
