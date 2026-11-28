@@ -26,6 +26,7 @@ const MarkdownText = ({ content }: { content: string }) => {
                 h2: ({ children }) => (
                     <h2 className="text-base font-bold mb-2">{children}</h2>
                 ),
+                img: () => null,
                 code: ({ children }) => (
                     <code className="bg-zinc-200 px-1 py-0.5 rounded text-xs">
                         {children}
